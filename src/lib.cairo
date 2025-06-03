@@ -1,13 +1,19 @@
 pub mod interfaces {
-    pub mod job;
+    pub mod credenza;
+    pub mod governance;
+    pub mod user;
 }
 
-// might be extracted to the paranet in the future
 pub mod contracts {
     pub mod core;
+    pub mod erc721;
 }
 
 pub mod components {
-    pub mod job;
+    pub mod credenza;
     pub mod user;
+}
+
+pub mod utils {
+    pub mod base;
 }
