@@ -1,7 +1,7 @@
 // TODO: Might be moved from core, and might be renamed.
+use credenza::interfaces::user::User;
 use starknet::ContractAddress;
 use starknet::storage::Map;
-use crate::interfaces::user::User;
 use crate::utils::base::{ContractAddressDefault, Verification};
 
 #[starknet::interface]
@@ -67,7 +67,7 @@ pub struct JobEdit {
 
 #[derive(Drop, Clone, Serde, Default)]
 pub struct JobParams {
-    pub title: felt252,
+    pub title: ByteArray,
     pub details: ByteArray,
     pub compensation: (ContractAddress, u256),
     pub applicants_threshold: u256,
@@ -76,7 +76,8 @@ pub struct JobParams {
 
 #[starknet::storage_node]
 pub struct JobNode {
-    pub title: felt252,
+    pub title: ByteArray,
+    pub details: ByteArray,
     pub recruiter: ContractAddress,
     pub verification: Verification,
     pub created_at: u64,

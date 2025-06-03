@@ -3,16 +3,17 @@ pub mod CredenzaComponent {
     use starknet::storage::{
         Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
     };
-    use starknet::{ContractAddress, get_caller_address};
-    use crate::interfaces::credenza::{ICredenza, Job, JobEdit, JobNode, JobParams};
+    use starknet::{ContractAddress, get_block_timestamp, get_caller_address};
+    use crate::interfaces::credenza::{ICredenza, Job, JobEdit, JobNode, JobParams, JobStatus};
     use crate::interfaces::user::User;
     use crate::utils::base::Verification;
     use super::super::user::UserComponent;
 
     #[storage]
     pub struct Storage {
-        jobs: Map<ContractAddress, JobNode>,
+        jobs: Map<u256, JobNode>,
         job_count: u256,
+        nonce: u256,
     }
 
     #[embeddable_as(CredenzaImpl)]
@@ -20,34 +21,31 @@ pub mod CredenzaComponent {
         TContractState,
         +HasComponent<TContractState>,
         +Drop<TContractState>,
-        impl User: UserComponent::HasComponent<TContractState>,
+        impl UserComp: UserComponent::HasComponent<TContractState>,
     > of ICredenza<ComponentState<TContractState>> {
         fn create_job(ref self: ComponentState<TContractState>, job_params: JobParams) -> u256 {
-            // pub struct JobParams {
-            //     pub title: felt252,
-            //     pub details: ByteArray,
-            //     pub compensation: (ContractAddress, u256),
-            //     pub applicants_threshold: u256,
-            //     pub rank_threshold: u256,
-            // }
-
-            //             #[starknet::storage_node]
-            // pub struct JobNode {
-            //     pub title: felt252,
-            //     pub recruiter: ContractAddress,
-            //     pub verification: Verification,
-            //     pub created_at: u64,
-            //     pub job_status: JobStatus,
-            //     pub compensation: (ContractAddress, u256),
-            //     pub applicant_count: u256,
-            //     pub applicants: Map<ContractAddress, bool>,
-            //     pub is_blacklisted: bool,
-            // }
             let caller = get_caller_address();
-            let userc = get_dep_component!(@self, User);
+            let userc = get_dep_component!(@self, UserComp);
             let verification = userc.users.entry(caller).verification.read();
             assert(verification == Verification::Passed, 'UNVERIFIED USER');
-            0
+            assert(job_params.title.len() > 10, 'TITLE INSUFFICIENT');
+            assert(job_params.details.len() > 40, 'DETAILS INSUFFICIENT');
+
+            let id = self.nonce.read() + 1;
+            let job = self.jobs.entry(id);
+            job.title.write(job_params.title);
+            job.details.write(job_params.details);
+            job.recruiter.write(caller);
+            job.verification.write(Verification::Pending);
+            job.created_at.write(get_block_timestamp());
+            job.job_status.write(JobStatus::Open);
+            job.compensation.write(job_params.compensation);
+
+            self.job_count.write(self.job_count.read() + 1);
+            // emit a JobCreated event here.
+
+            self.nonce.write(id);
+            id
         }
         fn edit_job(ref self: ComponentState<TContractState>, edit: JobEdit) {}
         fn get_job(self: @ComponentState<TContractState>, id: u256) -> Job {
@@ -61,6 +59,8 @@ pub mod CredenzaComponent {
             array![].span()
         }
         // for now, all user details are not hidden.
+
+        // fn get_applicants(self: @ComponentState<TContractState>, id: u256) -> Span<User>;
         fn get_applicants(self: @ComponentState<TContractState>, id: u256) -> Span<User> {
             array![].span()
         }
