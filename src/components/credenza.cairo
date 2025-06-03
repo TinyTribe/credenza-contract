@@ -1,9 +1,13 @@
 #[starknet::component]
 pub mod CredenzaComponent {
-    use starknet::storage::{Map, StorageMapReadAccess, StorageMapWriteAccess};
+    use starknet::storage::{
+        Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
+    };
     use starknet::{ContractAddress, get_caller_address};
     use crate::interfaces::credenza::{ICredenza, Job, JobEdit, JobNode, JobParams};
     use crate::interfaces::user::User;
+    use crate::utils::base::Verification;
+    use super::super::user::UserComponent;
 
     #[storage]
     pub struct Storage {
@@ -13,9 +17,36 @@ pub mod CredenzaComponent {
 
     #[embeddable_as(CredenzaImpl)]
     pub impl Credenza<
-        TContractState, +HasComponent<TContractState>,
+        TContractState,
+        +HasComponent<TContractState>,
+        +Drop<TContractState>,
+        impl User: UserComponent::HasComponent<TContractState>,
     > of ICredenza<ComponentState<TContractState>> {
         fn create_job(ref self: ComponentState<TContractState>, job_params: JobParams) -> u256 {
+            // pub struct JobParams {
+            //     pub title: felt252,
+            //     pub details: ByteArray,
+            //     pub compensation: (ContractAddress, u256),
+            //     pub applicants_threshold: u256,
+            //     pub rank_threshold: u256,
+            // }
+
+            //             #[starknet::storage_node]
+            // pub struct JobNode {
+            //     pub title: felt252,
+            //     pub recruiter: ContractAddress,
+            //     pub verification: Verification,
+            //     pub created_at: u64,
+            //     pub job_status: JobStatus,
+            //     pub compensation: (ContractAddress, u256),
+            //     pub applicant_count: u256,
+            //     pub applicants: Map<ContractAddress, bool>,
+            //     pub is_blacklisted: bool,
+            // }
+            let caller = get_caller_address();
+            let userc = get_dep_component!(@self, User);
+            let verification = userc.users.entry(caller).verification.read();
+            assert(verification == Verification::Passed, 'UNVERIFIED USER');
             0
         }
         fn edit_job(ref self: ComponentState<TContractState>, edit: JobEdit) {}

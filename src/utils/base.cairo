@@ -4,6 +4,7 @@ use starknet::ContractAddress;
 #[derive(Drop, Copy, PartialEq, Serde, Default, starknet::Store)]
 pub enum Verification {
     #[default]
+    None,
     Pending,
     Passed,
     Failed,

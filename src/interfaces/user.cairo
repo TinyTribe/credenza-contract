@@ -9,7 +9,7 @@ pub trait IUser<TContractState> {
 
 #[derive(Drop, Clone, Serde, Default)]
 pub struct UserParams {
-    pub fname: ByteArray,
+    pub firstname: ByteArray,
     pub lastname: ByteArray,
     pub other_addresses: Array<
         ContractAddress,
@@ -20,12 +20,12 @@ pub struct UserParams {
 
 #[starknet::storage_node]
 pub struct UserNode {
-    pub fname: ByteArray,
+    pub firstname: ByteArray,
     pub lastname: ByteArray,
     pub other_addresses: Map<
         ContractAddress, bool,
     >, // to be verified. Till then, any credential owned by these addresses are pending.,
-    pub verification: Verification,
+    pub verification: Verification, // use verification for blacklisting too.
     pub credentials: Map<ContractAddress, Credentials>,
     pub mapped_to: Map<ContractAddress, bool>, // this bool value might be changed in the future.
     pub credentials_count: u256,
@@ -35,7 +35,7 @@ pub struct UserNode {
 
 #[derive(Drop, Clone, Serde, Default)]
 pub struct User {
-    pub fname: ByteArray,
+    pub firstname: ByteArray,
 }
 
 #[derive(Drop, Copy, PartialEq, Serde, Default, starknet::Store)]
