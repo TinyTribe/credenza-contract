@@ -1,7 +1,7 @@
 #[starknet::contract]
 pub mod Core {
     use starknet::ContractAddress;
-    use crate::components::job::JobComponent;
+    use crate::components::credenza::CredenzaComponent;
 
     #[storage]
     pub struct Storage {}
