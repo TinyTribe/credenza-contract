@@ -2,7 +2,7 @@
 pub mod JobComponent {
     use starknet::storage::{Map, StorageMapReadAccess, StorageMapWriteAccess};
     use starknet::{ContractAddress, get_caller_address};
-    use crate::interfaces::job::{IJob, Job, JobEdit, JobNode, JobParams, UserParams};
+    use crate::interfaces::credenza::{ICredenza, Job, JobEdit, JobNode, JobParams};
 
     #[storage]
     pub struct Storage {
@@ -10,10 +10,10 @@ pub mod JobComponent {
         job_count: u256,
     }
 
-    #[embeddable_as(JobImpl)]
-    pub impl JobCompImpl<
+    #[embeddable_as(CredenzaImpl)]
+    pub impl Credenza<
         TContractState, +HasComponent<TContractState>,
-    > of IJob<ComponentState<TContractState>> {
+    > of ICredenza<ComponentState<TContractState>> {
         fn create_job(ref self: ComponentState<TContractState>, job_params: JobParams) -> u64 {
             0
         }
