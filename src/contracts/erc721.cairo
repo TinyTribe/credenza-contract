@@ -1,14 +1,21 @@
 #[starknet::contract]
 pub mod CredenzaCredential {
-    use openzeppelin::token::erc721::{ERC721Component, ERC721HooksEmptyImpl};
-    use openzeppelin::introspection::src5::SRC5Component;
-    use openzeppelin::access::ownable::OwnableComponent;
-    use starknet::{ContractAddress, get_caller_address, get_block_timestamp};
-    use starknet::storage::{Map, StoragePointerReadAccess, StoragePointerWriteAccess, StorageMapReadAccess, StorageMapWriteAccess};
     use core::byte_array::ByteArray;
     use core::integer::u256;
-    use crate::interfaces::erc721::{CredentialMetadata, CredentialStatus, ICredenzaCredential, BatchMintRequest};
-    use crate::contracts::mock_issuer_registry::{IIssuerRegistryDispatcher, IIssuerRegistryDispatcherTrait};
+    use openzeppelin::access::ownable::OwnableComponent;
+    use openzeppelin::introspection::src5::SRC5Component;
+    use openzeppelin::token::erc721::{ERC721Component, ERC721HooksEmptyImpl};
+    use starknet::storage::{
+        Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
+        StoragePointerWriteAccess,
+    };
+    use starknet::{ContractAddress, get_block_timestamp, get_caller_address};
+    use crate::contracts::mock_issuer_registry::{
+        IIssuerRegistryDispatcher, IIssuerRegistryDispatcherTrait,
+    };
+    use crate::interfaces::erc721::{
+        BatchMintRequest, CredentialMetadata, CredentialStatus, ICredenzaCredential,
+    };
 
     component!(path: ERC721Component, storage: erc721, event: ERC721Event);
     component!(path: SRC5Component, storage: src5, event: SRC5Event);
@@ -18,7 +25,7 @@ pub mod CredenzaCredential {
     impl ERC721MixinImpl = ERC721Component::ERC721MixinImpl<ContractState>;
     #[abi(embed_v0)]
     impl OwnableMixinImpl = OwnableComponent::OwnableMixinImpl<ContractState>;
-    
+
     impl ERC721InternalImpl = ERC721Component::InternalImpl<ContractState>;
     impl OwnableInternalImpl = OwnableComponent::InternalImpl<ContractState>;
 
@@ -105,14 +112,14 @@ pub mod CredenzaCredential {
         issuer_registry_address: ContractAddress,
         name: ByteArray,
         symbol: ByteArray,
-        owner: ContractAddress
+        owner: ContractAddress,
     ) {
         let base_uri = "";
         self.erc721.initializer(name, symbol, base_uri);
         self.ownable.initializer(owner);
         self.issuer_registry_address.write(issuer_registry_address);
     }
-    
+
     #[abi(embed_v0)]
     impl CredenzaCredentialImpl of ICredenzaCredential<ContractState> {
         fn mint(
@@ -121,11 +128,12 @@ pub mod CredenzaCredential {
             token_id: u256,
             token_uri: ByteArray,
             expiration_date: u64,
-            schema_id: felt252
+            schema_id: felt252,
         ) {
-            self.mint_with_details(
-                recipient, token_id, token_uri, expiration_date, schema_id, 'default', 1, false
-            );
+            self
+                .mint_with_details(
+                    recipient, token_id, token_uri, expiration_date, schema_id, 'default', 1, false,
+                );
         }
 
         fn mint_with_details(
@@ -137,11 +145,11 @@ pub mod CredenzaCredential {
             schema_id: felt252,
             credential_type: felt252,
             level: u8,
-            renewable: bool
+            renewable: bool,
         ) {
             let caller = get_caller_address();
             assert(self.can_issuer_mint(caller), 'CREDENTIAL: NOT_VERIFIED_ISSUER');
-            
+
             if expiration_date != 0 {
                 let now = get_block_timestamp();
                 assert(expiration_date > now, 'CREDENTIAL: INVALID_EXPIRATION');
@@ -160,7 +168,7 @@ pub mod CredenzaCredential {
                 level: level,
                 renewable: renewable,
             };
-            
+
             self.credential_data.write(token_id, metadata);
             self.emit(CredentialMinted { token_id, recipient, issuer: caller, schema_id });
         }
@@ -221,9 +229,12 @@ pub mod CredenzaCredential {
             };
             self.credential_data.write(token_id, updated_metadata);
 
-            self.emit(CredentialRenewed { 
-                token_id, old_expiration, new_expiration, renewed_by: caller 
-            });
+            self
+                .emit(
+                    CredentialRenewed {
+                        token_id, old_expiration, new_expiration, renewed_by: caller,
+                    },
+                );
         }
 
         fn get_credential_metadata(self: @ContractState, token_id: u256) -> CredentialMetadata {
@@ -267,17 +278,28 @@ pub mod CredenzaCredential {
 
             while i < count {
                 let request = requests_span.at(i);
-                self.mint_with_details(
-                    *request.recipient, *request.token_id, request.token_uri.clone(),
-                    *request.expiration_date, *request.schema_id, *request.credential_type,
-                    *request.level, *request.renewable
-                );
+                self
+                    .mint_with_details(
+                        *request.recipient,
+                        *request.token_id,
+                        request.token_uri.clone(),
+                        *request.expiration_date,
+                        *request.schema_id,
+                        *request.credential_type,
+                        *request.level,
+                        *request.renewable,
+                    );
                 i += 1;
-            };
+            }
 
-            self.emit(BatchMinted { 
-                issuer: caller, count: count.try_into().unwrap(), schema_id: *first_schema_id 
-            });
+            self
+                .emit(
+                    BatchMinted {
+                        issuer: caller,
+                        count: count.try_into().unwrap(),
+                        schema_id: *first_schema_id,
+                    },
+                );
         }
 
         fn batch_revoke(ref self: ContractState, token_ids: Array<u256>) {
@@ -292,22 +314,19 @@ pub mod CredenzaCredential {
                 let token_id = *token_ids_span.at(i);
                 self.revoke_with_reason(token_id, 'BATCH_REVOKED');
                 i += 1;
-            };
+            }
 
-            self.emit(BatchRevoked { 
-                issuer: caller, 
-                count: count.try_into().unwrap() 
-            });
+            self.emit(BatchRevoked { issuer: caller, count: count.try_into().unwrap() });
         }
 
         fn get_user_credentials(
-            self: @ContractState, user: ContractAddress, offset: u32, limit: u32
+            self: @ContractState, user: ContractAddress, offset: u32, limit: u32,
         ) -> Array<u256> {
             array![]
         }
 
         fn get_credentials_by_schema(
-            self: @ContractState, schema_id: felt252, offset: u32, limit: u32
+            self: @ContractState, schema_id: felt252, offset: u32, limit: u32,
         ) -> Array<u256> {
             array![]
         }
@@ -317,13 +336,13 @@ pub mod CredenzaCredential {
         }
 
         fn has_credential_type(
-            self: @ContractState, user: ContractAddress, credential_type: felt252
+            self: @ContractState, user: ContractAddress, credential_type: felt252,
         ) -> bool {
             false
         }
 
         fn set_issuer_permissions(
-            ref self: ContractState, issuer: ContractAddress, can_mint: bool, can_revoke: bool
+            ref self: ContractState, issuer: ContractAddress, can_mint: bool, can_revoke: bool,
         ) {
             self.ownable.assert_only_owner();
             self.issuer_permissions.write(issuer, can_mint);
@@ -336,8 +355,8 @@ pub mod CredenzaCredential {
                 return true;
             }
 
-            let issuer_registry = IIssuerRegistryDispatcher { 
-                contract_address: self.issuer_registry_address.read() 
+            let issuer_registry = IIssuerRegistryDispatcher {
+                contract_address: self.issuer_registry_address.read(),
             };
             issuer_registry.is_verified_issuer(issuer)
         }
@@ -347,4 +366,4 @@ pub mod CredenzaCredential {
             self.issuer_registry_address.write(new_registry);
         }
     }
-} 
+}

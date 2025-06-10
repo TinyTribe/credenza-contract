@@ -1,18 +1,20 @@
-use starknet::ContractAddress;
-use snforge_std::{
-    ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, spy_events,
-    start_cheat_caller_address, stop_cheat_caller_address, start_cheat_block_timestamp, stop_cheat_block_timestamp
-};
 use core::array::ArrayTrait;
 use core::byte_array::ByteArray;
 use core::integer::u256;
-
 use credenza::contracts::erc721::CredenzaCredential;
-use credenza::interfaces::erc721::{
-    ICredenzaCredentialDispatcher, ICredenzaCredentialDispatcherTrait, CredentialStatus,
-    BatchMintRequest
+use credenza::contracts::mock_issuer_registry::{
+    IMockIssuerRegistryDispatcher, IMockIssuerRegistryDispatcherTrait,
 };
-use credenza::contracts::mock_issuer_registry::{IMockIssuerRegistryDispatcher, IMockIssuerRegistryDispatcherTrait};
+use credenza::interfaces::erc721::{
+    BatchMintRequest, CredentialStatus, ICredenzaCredentialDispatcher,
+    ICredenzaCredentialDispatcherTrait,
+};
+use snforge_std::{
+    ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, spy_events,
+    start_cheat_block_timestamp, start_cheat_caller_address, stop_cheat_block_timestamp,
+    stop_cheat_caller_address,
+};
+use starknet::ContractAddress;
 
 fn ISSUER() -> ContractAddress {
     111.try_into().unwrap()
@@ -29,7 +31,9 @@ fn ADMIN() -> ContractAddress {
 fn deploy_contracts() -> (ICredenzaCredentialDispatcher, IMockIssuerRegistryDispatcher) {
     let registry_class = declare("MockIssuerRegistry").unwrap().contract_class();
     let (registry_address, _) = registry_class.deploy(@array![]).unwrap();
-    let mock_registry_dispatcher = IMockIssuerRegistryDispatcher { contract_address: registry_address };
+    let mock_registry_dispatcher = IMockIssuerRegistryDispatcher {
+        contract_address: registry_address,
+    };
 
     let nft_class = declare("CredenzaCredential").unwrap().contract_class();
     let mut constructor_args: Array<felt252> = array![];
@@ -62,10 +66,17 @@ fn test_mint_with_details() {
     let renewable = true;
 
     start_cheat_caller_address(nft.contract_address, ISSUER());
-    nft.mint_with_details(
-        RECIPIENT(), token_id, token_uri, expiration_date, 
-        schema_id, credential_type, level, renewable
-    );
+    nft
+        .mint_with_details(
+            RECIPIENT(),
+            token_id,
+            token_uri,
+            expiration_date,
+            schema_id,
+            credential_type,
+            level,
+            renewable,
+        );
     stop_cheat_caller_address(nft.contract_address);
 
     let metadata = nft.get_credential_metadata(token_id);
@@ -90,10 +101,17 @@ fn test_expiration_functionality() {
     start_cheat_block_timestamp(nft.contract_address, current_time);
 
     start_cheat_caller_address(nft.contract_address, ISSUER());
-    nft.mint_with_details(
-        RECIPIENT(), token_id, "ipfs://expiring", expiration_time,
-        'temp_cert', 'temporary', 1, true
-    );
+    nft
+        .mint_with_details(
+            RECIPIENT(),
+            token_id,
+            "ipfs://expiring",
+            expiration_time,
+            'temp_cert',
+            'temporary',
+            1,
+            true,
+        );
     stop_cheat_caller_address(nft.contract_address);
 
     assert(nft.is_valid(token_id), 'Should be valid initially');
@@ -104,7 +122,10 @@ fn test_expiration_functionality() {
 
     assert(!nft.is_valid(token_id), 'Should be invalid after exp');
     assert(nft.is_expired(token_id), 'Should be expired');
-    assert(nft.get_credential_status(token_id) == CredentialStatus::Expired, 'Should be expired status');
+    assert(
+        nft.get_credential_status(token_id) == CredentialStatus::Expired,
+        'Should be expired status',
+    );
 
     stop_cheat_block_timestamp(nft.contract_address);
 }
@@ -125,10 +146,17 @@ fn test_renew_credential() {
     start_cheat_block_timestamp(nft.contract_address, current_time);
 
     start_cheat_caller_address(nft.contract_address, ISSUER());
-    nft.mint_with_details(
-        RECIPIENT(), token_id, "ipfs://renewable", expiration_time,
-        'renewable_cert', 'certification', 2, true
-    );
+    nft
+        .mint_with_details(
+            RECIPIENT(),
+            token_id,
+            "ipfs://renewable",
+            expiration_time,
+            'renewable_cert',
+            'certification',
+            2,
+            true,
+        );
 
     let mut spy = spy_events();
     nft.renew_credential(token_id, new_expiration);
@@ -136,14 +164,11 @@ fn test_renew_credential() {
 
     let metadata = nft.get_credential_metadata(token_id);
     assert(metadata.expiration_date == new_expiration, 'Expiration not updated');
-    
+
     let expected_event = CredenzaCredential::Event::CredentialRenewed(
-        CredenzaCredential::CredentialRenewed { 
-            token_id, 
-            old_expiration: expiration_time, 
-            new_expiration, 
-            renewed_by: ISSUER() 
-        }
+        CredenzaCredential::CredentialRenewed {
+            token_id, old_expiration: expiration_time, new_expiration, renewed_by: ISSUER(),
+        },
     );
     spy.assert_emitted(@array![(nft.contract_address, expected_event)]);
 
@@ -162,10 +187,17 @@ fn test_renew_non_renewable_credential() {
     let token_id: u256 = 1;
 
     start_cheat_caller_address(nft.contract_address, ISSUER());
-    nft.mint_with_details(
-        RECIPIENT(), token_id, "ipfs://non_renewable", 0,
-        'permanent_cert', 'permanent', 5, false
-    );
+    nft
+        .mint_with_details(
+            RECIPIENT(),
+            token_id,
+            "ipfs://non_renewable",
+            0,
+            'permanent_cert',
+            'permanent',
+            5,
+            false,
+        );
 
     nft.renew_credential(token_id, 1000000000);
     stop_cheat_caller_address(nft.contract_address);
@@ -183,27 +215,33 @@ fn test_batch_mint() {
     let recipient1: ContractAddress = 100.try_into().unwrap();
     let recipient2: ContractAddress = 200.try_into().unwrap();
 
-    requests.append(BatchMintRequest {
-        recipient: recipient1,
-        token_id: 1,
-        token_uri: "ipfs://batch1",
-        expiration_date: 0,
-        schema_id: 'batch_schema',
-        credential_type: 'batch_cert',
-        level: 1,
-        renewable: false,
-    });
+    requests
+        .append(
+            BatchMintRequest {
+                recipient: recipient1,
+                token_id: 1,
+                token_uri: "ipfs://batch1",
+                expiration_date: 0,
+                schema_id: 'batch_schema',
+                credential_type: 'batch_cert',
+                level: 1,
+                renewable: false,
+            },
+        );
 
-    requests.append(BatchMintRequest {
-        recipient: recipient2,
-        token_id: 2,
-        token_uri: "ipfs://batch2",
-        expiration_date: 0,
-        schema_id: 'batch_schema',
-        credential_type: 'batch_cert',
-        level: 2,
-        renewable: false,
-    });
+    requests
+        .append(
+            BatchMintRequest {
+                recipient: recipient2,
+                token_id: 2,
+                token_uri: "ipfs://batch2",
+                expiration_date: 0,
+                schema_id: 'batch_schema',
+                credential_type: 'batch_cert',
+                level: 2,
+                renewable: false,
+            },
+        );
 
     let mut spy = spy_events();
     start_cheat_caller_address(nft.contract_address, ISSUER());
@@ -212,18 +250,14 @@ fn test_batch_mint() {
 
     let metadata1 = nft.get_credential_metadata(1);
     let metadata2 = nft.get_credential_metadata(2);
-    
+
     assert(metadata1.issuer == ISSUER(), 'Wrong issuer for token 1');
     assert(metadata2.issuer == ISSUER(), 'Wrong issuer for token 2');
     assert(metadata1.level == 1, 'Wrong level for token 1');
     assert(metadata2.level == 2, 'Wrong level for token 2');
 
     let expected_event = CredenzaCredential::Event::BatchMinted(
-        CredenzaCredential::BatchMinted { 
-            issuer: ISSUER(), 
-            count: 2, 
-            schema_id: 'batch_schema' 
-        }
+        CredenzaCredential::BatchMinted { issuer: ISSUER(), count: 2, schema_id: 'batch_schema' },
     );
     spy.assert_emitted(@array![(nft.contract_address, expected_event)]);
 }
@@ -249,10 +283,7 @@ fn test_batch_revoke() {
     assert(nft.get_credential_status(2) == CredentialStatus::Revoked, 'Token 2 not revoked');
 
     let expected_event = CredenzaCredential::Event::BatchRevoked(
-        CredenzaCredential::BatchRevoked { 
-            issuer: ISSUER(), 
-            count: 2 
-        }
+        CredenzaCredential::BatchRevoked { issuer: ISSUER(), count: 2 },
     );
     spy.assert_emitted(@array![(nft.contract_address, expected_event)]);
 }
@@ -275,11 +306,9 @@ fn test_revoke_with_reason() {
     assert(nft.get_credential_status(1) == CredentialStatus::Revoked, 'Token not revoked');
 
     let expected_event = CredenzaCredential::Event::CredentialRevoked(
-        CredenzaCredential::CredentialRevoked { 
-            token_id: 1, 
-            issuer: ISSUER(), 
-            reason: 'FRAUD_DETECTED' 
-        }
+        CredenzaCredential::CredentialRevoked {
+            token_id: 1, issuer: ISSUER(), reason: 'FRAUD_DETECTED',
+        },
     );
     spy.assert_emitted(@array![(nft.contract_address, expected_event)]);
 }
@@ -331,9 +360,6 @@ fn test_invalid_expiration_date() {
     start_cheat_block_timestamp(nft.contract_address, current_time);
 
     start_cheat_caller_address(nft.contract_address, ISSUER());
-    nft.mint_with_details(
-        RECIPIENT(), 1, "ipfs://invalid", past_time,
-        'schema1', 'cert', 1, false
-    );
+    nft.mint_with_details(RECIPIENT(), 1, "ipfs://invalid", past_time, 'schema1', 'cert', 1, false);
     stop_cheat_caller_address(nft.contract_address);
-} 
+}

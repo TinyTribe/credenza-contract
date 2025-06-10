@@ -1,5 +1,5 @@
-use starknet::ContractAddress;
 use core::integer::u256;
+use starknet::ContractAddress;
 use starknet::storage::{Map, StorageMapReadAccess, StorageMapWriteAccess};
 
 #[starknet::interface]
@@ -31,8 +31,10 @@ mod MockIssuerRegistry {
 
     #[abi(embed_v0)]
     impl MockFunctionsImpl of super::IMockIssuerRegistry<ContractState> {
-        fn set_verified_issuer(ref self: ContractState, address: ContractAddress, is_verified: bool) {
+        fn set_verified_issuer(
+            ref self: ContractState, address: ContractAddress, is_verified: bool,
+        ) {
             self.verified_issuers.write(address, is_verified);
         }
     }
-} 
+}
