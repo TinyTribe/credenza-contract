@@ -1,5 +1,6 @@
 pub mod interfaces {
     pub mod credenza;
+    pub mod erc721;
     pub mod governance;
     pub mod user;
 }
@@ -7,6 +8,7 @@ pub mod interfaces {
 pub mod contracts {
     pub mod core;
     pub mod erc721;
+    pub mod mock_issuer_registry;
 }
 
 pub mod components {
