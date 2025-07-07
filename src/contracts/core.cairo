@@ -4,7 +4,10 @@ pub mod Core {
     use crate::components::credenza::CredenzaComponent;
 
     #[storage]
-    pub struct Storage {}
+    struct Storage {
+        #[substorage(v0)]
+        credenza: CredenzaComponent::Storage,
+    }
 
     #[constructor]
     fn constructor(ref self: ContractState) {}

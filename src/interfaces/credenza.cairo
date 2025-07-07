@@ -1,4 +1,5 @@
 // TODO: Might be moved from core, and might be renamed.
+use core::byte_array::ByteArray;
 use credenza::interfaces::user::User;
 use starknet::ContractAddress;
 use starknet::storage::Map;
@@ -7,7 +8,7 @@ use crate::utils::base::{ContractAddressDefault, Verification};
 #[starknet::interface]
 pub trait ICredenza<TContractState> {
     fn create_job(ref self: TContractState, job_params: JobParams) -> u256;
-    fn edit_job(ref self: TContractState, edit: JobEdit);
+    fn edit_job(ref self: TContractState, id: u256, edit: JobEdit);
     fn get_job(self: @TContractState, id: u256) -> Job;
     fn get_all_jobs(self: @TContractState, filter: u8) -> Span<Job>;
     fn apply(ref self: TContractState, id: u256, any: ByteArray);
@@ -86,4 +87,87 @@ pub struct JobNode {
     pub applicant_count: u256,
     pub applicants: Map<ContractAddress, bool>,
     pub is_blacklisted: bool,
+}
+
+// Event structs for each function
+#[derive(Drop, starknet::Event)]
+pub struct JobCreated {
+    pub id: u256,
+    pub recruiter: ContractAddress,
+    pub title: ByteArray,
+    pub details: ByteArray,
+    pub compensation: (ContractAddress, u256),
+}
+#[derive(Drop, starknet::Event)]
+pub struct JobEdited {
+    pub id: u256,
+    pub editor: ContractAddress,
+    pub new_title: felt252,
+}
+#[derive(Drop, starknet::Event)]
+pub struct JobFetched {
+    pub id: u256,
+    pub requester: ContractAddress,
+}
+#[derive(Drop, starknet::Event)]
+pub struct AllJobsFetched {
+    pub filter: u8,
+    pub requester: ContractAddress,
+}
+#[derive(Drop, starknet::Event)]
+pub struct JobApplied {
+    pub id: u256,
+    pub applicant: ContractAddress,
+    pub data: ByteArray,
+}
+#[derive(Drop, starknet::Event)]
+pub struct JobsByIdsFetched {
+    pub ids: Array<u256>,
+    pub requester: ContractAddress,
+}
+#[derive(Drop, starknet::Event)]
+pub struct ApplicantsFetched {
+    pub id: u256,
+    pub requester: ContractAddress,
+}
+#[derive(Drop, starknet::Event)]
+pub struct JobAccepted {
+    pub id: u256,
+    pub recruiter: ContractAddress,
+    pub applicant: ContractAddress,
+}
+#[derive(Drop, starknet::Event)]
+pub struct JobRejected {
+    pub id: u256,
+    pub recruiter: ContractAddress,
+    pub applicant: ContractAddress,
+}
+#[derive(Drop, starknet::Event)]
+pub struct HolderValidated {
+    pub address: ContractAddress,
+    pub holder: ContractAddress,
+    pub validator: ContractAddress,
+}
+#[derive(Drop, starknet::Event)]
+pub struct HolderRevoked {
+    pub address: ContractAddress,
+    pub holder: ContractAddress,
+    pub revoker: ContractAddress,
+}
+#[derive(Drop, starknet::Event)]
+pub struct HolderValidationChecked {
+    pub address: ContractAddress,
+    pub holder: ContractAddress,
+    pub checker: ContractAddress,
+    pub result: bool,
+}
+#[derive(Drop, starknet::Event)]
+pub struct CredentialIssued {
+    pub address: ContractAddress,
+    pub target: ContractAddress,
+    pub issuer: ContractAddress,
+}
+#[derive(Drop, starknet::Event)]
+pub struct NewCredentialCreated {
+    pub creator: ContractAddress,
 }
