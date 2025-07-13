@@ -61,7 +61,7 @@ pub enum JobType {
 
 #[derive(Drop, Copy, Serde, Default)]
 pub struct JobEdit {
-    // incoming.
+    pub job_id: u256,
     pub title: felt252,
 }
 
@@ -86,4 +86,76 @@ pub struct JobNode {
     pub applicant_count: u256,
     pub applicants: Map<ContractAddress, bool>,
     pub is_blacklisted: bool,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct JobCreated {
+    #[key]
+    pub job_id: u256,
+    pub recruiter: ContractAddress,
+    pub title: ByteArray,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct JobEdited {
+    #[key]
+    pub job_id: u256,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct JobApplied {
+    #[key]
+    pub job_id: u256,
+    #[key]
+    pub applicant: ContractAddress,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct ApplicantAccepted {
+    #[key]
+    pub job_id: u256,
+    #[key]
+    pub applicant: ContractAddress,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct ApplicantRejected {
+    #[key]
+    pub job_id: u256,
+    #[key]
+    pub applicant: ContractAddress,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct HolderValidated {
+    #[key]
+    pub credential_address: ContractAddress,
+    #[key]
+    pub holder: ContractAddress,
+    pub validator: ContractAddress,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct HolderRevoked {
+    #[key]
+    pub credential_address: ContractAddress,
+    #[key]
+    pub holder: ContractAddress,
+    pub revoker: ContractAddress,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct CredentialIssued {
+    #[key]
+    pub credential_address: ContractAddress,
+    #[key]
+    pub target: ContractAddress,
+    pub issuer: ContractAddress,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct CredentialContractCreated {
+    #[key]
+    pub credential_address: ContractAddress,
+    pub owner: ContractAddress,
 }

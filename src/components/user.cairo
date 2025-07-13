@@ -1,8 +1,8 @@
 #[starknet::component]
 pub mod UserComponent {
-    use starknet::storage::{Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePathEntry};
-    use starknet::{ContractAddress, get_caller_address};
-    use crate::interfaces::user::{IUser, UserNode, UserParams};
+    use starknet::ContractAddress;
+    use starknet::storage::Map;
+    use crate::interfaces::user::{IUser, User, UserNode, UserParams};
 
     #[storage]
     struct Storage {
@@ -10,7 +10,7 @@ pub mod UserComponent {
     }
 
     #[embeddable_as(UserImpl)]
-    pub impl User<
+    pub impl UserComponent<
         TContractState, +HasComponent<TContractState>,
     > of IUser<ComponentState<TContractState>> {
         fn create_user(ref self: ComponentState<TContractState>, user_params: UserParams) {}

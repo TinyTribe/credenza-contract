@@ -1,6 +1,4 @@
-use core::integer::u256;
 use starknet::ContractAddress;
-use starknet::storage::{Map, StorageMapReadAccess, StorageMapWriteAccess};
 
 #[starknet::interface]
 pub trait IIssuerRegistry<TContractState> {
