@@ -88,7 +88,7 @@ pub struct JobNode {
     pub is_blacklisted: bool,
     pub recruiter_accepted: Map<ContractAddress, bool>, // recruiter accepts specific applicant
     pub applicant_accepted: Map<ContractAddress, bool>, // applicant accepts the job offer
-    pub selected_applicant: ContractAddress, // final selected applicant when both accept
+    pub selected_applicant: ContractAddress // final selected applicant when both accept
 }
 
 #[derive(Drop, starknet::Event)]
