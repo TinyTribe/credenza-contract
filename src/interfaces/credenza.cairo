@@ -41,7 +41,7 @@ pub struct Job {
     pub job_status: JobStatus,
 }
 
-#[derive(Drop, Copy, Serde, Default, starknet::Store)]
+#[derive(Drop, Copy, Serde, Default, PartialEq, starknet::Store)]
 pub enum JobStatus {
     #[default]
     None,
@@ -86,6 +86,9 @@ pub struct JobNode {
     pub applicant_count: u256,
     pub applicants: Map<ContractAddress, bool>,
     pub is_blacklisted: bool,
+    pub recruiter_accepted: Map<ContractAddress, bool>, // recruiter accepts specific applicant
+    pub applicant_accepted: Map<ContractAddress, bool>, // applicant accepts the job offer
+    pub selected_applicant: ContractAddress, // final selected applicant when both accept
 }
 
 #[derive(Drop, starknet::Event)]
@@ -158,4 +161,31 @@ pub struct CredentialContractCreated {
     #[key]
     pub credential_address: ContractAddress,
     pub owner: ContractAddress,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct RecruiterAccepted {
+    #[key]
+    pub job_id: u256,
+    #[key]
+    pub applicant: ContractAddress,
+    pub recruiter: ContractAddress,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct ApplicantConfirmed {
+    #[key]
+    pub job_id: u256,
+    #[key]
+    pub applicant: ContractAddress,
+    pub recruiter: ContractAddress,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct JobCompleted {
+    #[key]
+    pub job_id: u256,
+    #[key]
+    pub applicant: ContractAddress,
+    pub recruiter: ContractAddress,
 }

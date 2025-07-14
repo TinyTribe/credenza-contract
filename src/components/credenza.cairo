@@ -5,9 +5,9 @@ pub mod CredenzaComponent {
     };
     use starknet::{ContractAddress, get_block_timestamp, get_caller_address};
     use crate::interfaces::credenza::{
-        ApplicantAccepted, ApplicantRejected, CredentialContractCreated, CredentialIssued,
-        HolderRevoked, HolderValidated, ICredenza, Job, JobApplied, JobCreated, JobEdit, JobEdited,
-        JobNode, JobParams, JobStatus,
+        ICredenza, Job, JobEdit, JobNode, JobParams, JobStatus, JobCreated, JobEdited, JobApplied,
+        ApplicantAccepted, ApplicantRejected, HolderValidated, HolderRevoked, CredentialIssued,
+        CredentialContractCreated, RecruiterAccepted, ApplicantConfirmed, JobCompleted
     };
     use crate::interfaces::user::User;
     use crate::utils::base::Verification;
@@ -32,6 +32,9 @@ pub mod CredenzaComponent {
         HolderRevoked: HolderRevoked,
         CredentialIssued: CredentialIssued,
         CredentialContractCreated: CredentialContractCreated,
+        RecruiterAccepted: RecruiterAccepted,
+        ApplicantConfirmed: ApplicantConfirmed,
+        JobCompleted: JobCompleted,
     }
 
     #[embeddable_as(CredenzaImpl)]
@@ -77,6 +80,22 @@ pub mod CredenzaComponent {
         }
         fn apply(ref self: ComponentState<TContractState>, id: u256, any: ByteArray) {
             let applicant = get_caller_address();
+            
+            // Check if user is verified
+            let userc = get_dep_component!(@self, UserComp);
+            let verification = userc.users.entry(applicant).verification.read();
+            assert(verification == Verification::Passed, 'UNVERIFIED USER');
+            
+            let job = self.jobs.entry(id);
+            
+            // Check if job exists and is open
+            assert(job.job_status.read() == JobStatus::Open, 'JOB: NOT_OPEN');
+            assert(!job.is_blacklisted.read(), 'JOB: BLACKLISTED');
+            
+            // Add applicant to job's applicant list
+            job.applicants.entry(applicant).write(true);
+            job.applicant_count.write(job.applicant_count.read() + 1);
+            
             self.emit(JobApplied { job_id: id, applicant });
         }
         fn get_jobs_by_ids(self: @ComponentState<TContractState>, ids: Array<u256>) -> Span<Job> {
@@ -91,7 +110,46 @@ pub mod CredenzaComponent {
 
         // Implements an accept, and an accept_if.
         fn accept(ref self: ComponentState<TContractState>, id: u256, any: ContractAddress) {
-            self.emit(ApplicantAccepted { job_id: id, applicant: any });
+            let caller = get_caller_address();
+            
+            // Check if caller is verified
+            let userc = get_dep_component!(@self, UserComp);
+            let verification = userc.users.entry(caller).verification.read();
+            assert(verification == Verification::Passed, 'UNVERIFIED USER');
+            
+            let job = self.jobs.entry(id);
+            let recruiter = job.recruiter.read();
+            
+            // Check if job exists and is open
+            assert(job.job_status.read() == JobStatus::Open, 'JOB: NOT_OPEN');
+            assert(!job.is_blacklisted.read(), 'JOB: BLACKLISTED');
+            
+            // Check if the applicant actually applied
+            assert(job.applicants.entry(any).read(), 'APPLICANT: NOT_APPLIED');
+            
+            if caller == recruiter {
+                // Recruiter is accepting the applicant
+                job.recruiter_accepted.entry(any).write(true);
+                self.emit(RecruiterAccepted { job_id: id, applicant: any, recruiter: caller });
+                
+                // Check if applicant has also accepted
+                if job.applicant_accepted.entry(any).read() {
+                    complete_job_acceptance(ref self, id, any, recruiter);
+                }
+            } else if caller == any {
+                // Applicant is confirming the job offer
+                assert(job.recruiter_accepted.entry(any).read(), 'RECRUITER: NOT_ACCEPTED');
+                
+                job.applicant_accepted.entry(any).write(true);
+                self.emit(ApplicantConfirmed { job_id: id, applicant: any, recruiter });
+                
+                // Check if recruiter has also accepted
+                if job.recruiter_accepted.entry(any).read() {
+                    complete_job_acceptance(ref self, id, any, recruiter);
+                }
+            } else {
+                assert(false, 'UNAUTHORIZED');
+            }
         }
         fn reject(ref self: ComponentState<TContractState>, id: u256, any: ContractAddress) {
             self.emit(ApplicantRejected { job_id: id, applicant: any });
@@ -132,10 +190,28 @@ pub mod CredenzaComponent {
 
         fn new_credential(ref self: ComponentState<TContractState>) {
             let owner = get_caller_address();
-            self
-                .emit(
-                    CredentialContractCreated { credential_address: 0.try_into().unwrap(), owner },
-                );
+            self.emit(CredentialContractCreated { credential_address: 0.try_into().unwrap(), owner });
         }
+    }
+
+    // Helper function to complete job acceptance when both parties agree
+    fn complete_job_acceptance<TContractState, +HasComponent<TContractState>, +Drop<TContractState>, impl UserComp: UserComponent::HasComponent<TContractState>>(
+        ref self: ComponentState<TContractState>,
+        job_id: u256,
+        applicant: ContractAddress,
+        recruiter: ContractAddress
+    ) {
+        let job = self.jobs.entry(job_id);
+        
+        // Update job status to completed
+        job.job_status.write(JobStatus::Completed);
+        job.selected_applicant.write(applicant);
+        
+        // Update user's mapped_to field
+        let mut user_comp = get_dep_component_mut!(ref self, UserComp);
+        user_comp.users.entry(applicant).mapped_to.entry(recruiter).write(true);
+        
+        // Emit completion event
+        self.emit(JobCompleted { job_id, applicant, recruiter });
     }
 }
