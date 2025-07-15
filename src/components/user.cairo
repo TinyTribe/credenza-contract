@@ -1,8 +1,6 @@
 #[starknet::component]
 pub mod UserComponent {
-    use starknet::storage::{
-        Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
-    };
+    use starknet::storage::{Map, StoragePathEntry, StoragePointerWriteAccess};
     use starknet::{ContractAddress, get_caller_address};
     use crate::interfaces::user::{IUser, UserNode, UserParams};
     use crate::utils::base::Verification;

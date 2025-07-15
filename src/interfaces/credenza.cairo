@@ -59,10 +59,14 @@ pub enum JobType {
     Contract,
 }
 
-#[derive(Drop, Copy, Serde, Default)]
+#[derive(Drop, Serde, Default)]
 pub struct JobEdit {
     pub job_id: u256,
-    pub title: felt252,
+    pub title: Option<ByteArray>,
+    pub details: Option<ByteArray>,
+    pub compensation: Option<(ContractAddress, u256)>,
+    pub applicants_threshold: Option<u256>,
+    pub rank_threshold: Option<u256>,
 }
 
 #[derive(Drop, Clone, Serde, Default)]
@@ -88,7 +92,9 @@ pub struct JobNode {
     pub is_blacklisted: bool,
     pub recruiter_accepted: Map<ContractAddress, bool>, // recruiter accepts specific applicant
     pub applicant_accepted: Map<ContractAddress, bool>, // applicant accepts the job offer
-    pub selected_applicant: ContractAddress // final selected applicant when both accept
+    pub selected_applicant: ContractAddress, // final selected applicant when both accept
+    pub applicants_threshold: u256,
+    pub rank_threshold: u256,
 }
 
 #[derive(Drop, starknet::Event)]

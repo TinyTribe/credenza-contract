@@ -1,5 +1,6 @@
 #[starknet::component]
 pub mod CredenzaComponent {
+    use core::num::traits::Zero;
     use starknet::storage::{
         Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
     };
@@ -62,6 +63,8 @@ pub mod CredenzaComponent {
             job.created_at.write(get_block_timestamp());
             job.job_status.write(JobStatus::Open);
             job.compensation.write(job_params.compensation);
+            job.applicants_threshold.write(job_params.applicants_threshold);
+            job.rank_threshold.write(job_params.rank_threshold);
 
             self.job_count.write(self.job_count.read() + 1);
             self.emit(JobCreated { job_id: id, recruiter: caller, title: job_params.title });
@@ -70,6 +73,38 @@ pub mod CredenzaComponent {
             id
         }
         fn edit_job(ref self: ComponentState<TContractState>, edit: JobEdit) {
+            let caller = get_caller_address();
+
+            // Perform security checks
+            validate_job_operation_security(@self, edit.job_id, caller);
+
+            let job = self.jobs.entry(edit.job_id);
+
+            // Update title if provided
+            if let Option::Some(title) = edit.title {
+                job.title.write(title);
+            }
+
+            // Update details if provided
+            if let Option::Some(details) = edit.details {
+                job.details.write(details);
+            }
+
+            // Update compensation if provided
+            if let Option::Some(compensation) = edit.compensation {
+                job.compensation.write(compensation);
+            }
+
+            // Update applicants_threshold if provided
+            if let Option::Some(applicants_threshold) = edit.applicants_threshold {
+                job.applicants_threshold.write(applicants_threshold);
+            }
+
+            // Update rank_threshold if provided
+            if let Option::Some(rank_threshold) = edit.rank_threshold {
+                job.rank_threshold.write(rank_threshold);
+            }
+
             self.emit(JobEdited { job_id: edit.job_id });
         }
         fn get_job(self: @ComponentState<TContractState>, id: u256) -> Job {
@@ -195,6 +230,33 @@ pub mod CredenzaComponent {
                     CredentialContractCreated { credential_address: 0.try_into().unwrap(), owner },
                 );
         }
+    }
+
+    // Helper function to validate job operation security requirements
+    fn validate_job_operation_security<
+        TContractState,
+        +HasComponent<TContractState>,
+        +Drop<TContractState>,
+        impl UserComp: UserComponent::HasComponent<TContractState>,
+    >(
+        self: @ComponentState<TContractState>, job_id: u256, caller: ContractAddress,
+    ) {
+        let job = self.jobs.entry(job_id);
+        let recruiter = job.recruiter.read();
+
+        // 1. Assert that job exists (recruiter not zero means job exists)
+        assert(!recruiter.is_zero(), 'JOB: NOT_FOUND');
+
+        // 2. Assert that caller is the recruiter
+        assert(caller == recruiter, 'UNAUTHORIZED: NOT_RECRUITER');
+
+        // 3. Check if recruiter is blacklisted
+        let user_comp = get_dep_component!(self, UserComp);
+        let recruiter_verification = user_comp.users.entry(recruiter).verification.read();
+        assert(recruiter_verification != Verification::Failed, 'RECRUITER: BLACKLISTED');
+
+        // 4. Assert that job is not blacklisted
+        assert(!job.is_blacklisted.read(), 'JOB: BLACKLISTED');
     }
 
     // Helper function to complete job acceptance when both parties agree

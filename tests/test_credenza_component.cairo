@@ -1,7 +1,7 @@
 use credenza::components::credenza::CredenzaComponent;
 use credenza::interfaces::credenza::{
     ApplicantConfirmed, ICredenzaDispatcher, ICredenzaDispatcherTrait, JobApplied, JobCompleted,
-    JobParams, RecruiterAccepted,
+    JobEdit, JobEdited, JobParams, RecruiterAccepted,
 };
 use credenza::interfaces::user::{IUserDispatcher, IUserDispatcherTrait, UserParams, UserType};
 use snforge_std::{
@@ -496,6 +496,123 @@ fn test_validate_holder() {
 fn test_revoke_holder() {
     // TODO: Implement revoke_holder tests
     assert(false, 'TODO: revoke_holder tests');
+}
+
+// =============================================================================
+// EDIT JOB FUNCTION TESTS
+// =============================================================================
+
+#[test]
+fn test_edit_job_success_all_fields() {
+    let (credenza, _user_contract, recruiter, _applicant, job_id) = setup_job_scenario();
+
+    // Create job edit with all fields updated
+    let job_edit = JobEdit {
+        job_id,
+        title: Option::Some("Updated Senior Software Engineer Position"),
+        details: Option::Some("Updated job description with new requirements and technologies..."),
+        compensation: Option::Some((0x456.try_into().unwrap(), 75000)),
+        applicants_threshold: Option::Some(15),
+        rank_threshold: Option::Some(8),
+    };
+
+    // Setup event spy
+    let mut spy = spy_events();
+
+    // Edit the job as recruiter
+    start_cheat_caller_address(credenza.contract_address, recruiter);
+    credenza.edit_job(job_edit);
+    stop_cheat_caller_address(credenza.contract_address);
+
+    // Verify JobEdited event was emitted
+    let expected_event = TestCredenzaContract::Event::CredenzaEvent(
+        CredenzaComponent::Event::JobEdited(JobEdited { job_id }),
+    );
+    spy.assert_emitted(@array![(credenza.contract_address, expected_event)]);
+}
+
+#[test]
+fn test_edit_job_success_partial_fields() {
+    let (credenza, _user_contract, recruiter, _applicant, job_id) = setup_job_scenario();
+
+    // Create job edit with only some fields updated
+    let job_edit = JobEdit {
+        job_id,
+        title: Option::Some("Partially Updated Position"),
+        details: Option::None,
+        compensation: Option::Some((0x789.try_into().unwrap(), 80000)),
+        applicants_threshold: Option::None,
+        rank_threshold: Option::Some(7),
+    };
+
+    // Edit the job as recruiter
+    start_cheat_caller_address(credenza.contract_address, recruiter);
+    credenza.edit_job(job_edit);
+    stop_cheat_caller_address(credenza.contract_address);
+    // Should succeed without errors
+}
+
+#[test]
+#[should_panic(expected: ('JOB: NOT_FOUND',))]
+fn test_edit_job_nonexistent_job() {
+    let (credenza, _user_contract, recruiter, _applicant, _job_id) = setup_job_scenario();
+
+    let job_edit = JobEdit {
+        job_id: 999, // Non-existent job ID
+        title: Option::Some("Updated Title"),
+        details: Option::None,
+        compensation: Option::None,
+        applicants_threshold: Option::None,
+        rank_threshold: Option::None,
+    };
+
+    start_cheat_caller_address(credenza.contract_address, recruiter);
+    credenza.edit_job(job_edit);
+    stop_cheat_caller_address(credenza.contract_address);
+}
+
+#[test]
+#[should_panic(expected: ('UNAUTHORIZED: NOT_RECRUITER',))]
+fn test_edit_job_unauthorized_user() {
+    let (credenza, user_contract, _recruiter, applicant, job_id) = setup_job_scenario();
+
+    // Create another user who is not the recruiter
+    let unauthorized_user: ContractAddress = 0x99.try_into().unwrap();
+    setup_verified_user(user_contract, unauthorized_user);
+
+    let job_edit = JobEdit {
+        job_id,
+        title: Option::Some("Unauthorized Edit"),
+        details: Option::None,
+        compensation: Option::None,
+        applicants_threshold: Option::None,
+        rank_threshold: Option::None,
+    };
+
+    // Try to edit as unauthorized user
+    start_cheat_caller_address(credenza.contract_address, unauthorized_user);
+    credenza.edit_job(job_edit);
+    stop_cheat_caller_address(credenza.contract_address);
+}
+
+#[test]
+#[should_panic(expected: ('UNAUTHORIZED: NOT_RECRUITER',))]
+fn test_edit_job_applicant_cannot_edit() {
+    let (credenza, _user_contract, _recruiter, applicant, job_id) = setup_job_scenario();
+
+    let job_edit = JobEdit {
+        job_id,
+        title: Option::Some("Applicant trying to edit"),
+        details: Option::None,
+        compensation: Option::None,
+        applicants_threshold: Option::None,
+        rank_threshold: Option::None,
+    };
+
+    // Try to edit as applicant (not recruiter)
+    start_cheat_caller_address(credenza.contract_address, applicant);
+    credenza.edit_job(job_edit);
+    stop_cheat_caller_address(credenza.contract_address);
 }
 
 #[test]
