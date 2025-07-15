@@ -13,6 +13,7 @@ pub mod contracts {
 
 pub mod components {
     pub mod credenza;
+    pub mod governance;
     pub mod user;
 }
 
